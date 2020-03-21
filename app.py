@@ -38,6 +38,17 @@ class GetUser(db.Model):
         return '<GetUser %r>' % self.username
 
 
+class UserStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    programming_skills = db.Column(db.Integer, nullable=False, default="0")
+    design_skills = db.Column(db.Integer, nullable=False, default="0")
+    social_skills = db.Column(db.Integer, nullable=False, default="0")
+
+    def __repr__(self):
+        return '<GetUser %r>' % self.username
+
+
 db.create_all()
 
 
@@ -60,8 +71,10 @@ def create_user():
     else:
         user = User(username=data['nickname'], email=data['email'], password=data['password'], status='user')
         user_info = GetUser(username=data['nickname'], email=data['email'])
+        user_stats = UserStats(email=data['email'])
         db.session.add(user)
         db.session.add(user_info)
+        db.session.add(user_stats)
         db.session.commit()
         data = {'status': 'Success'}
         return jsonify(data), 200
@@ -72,11 +85,16 @@ def login_user():
     data = request.get_json(force=True)
     user = User.query.filter_by(email=data['email']).first()
     user_info = GetUser.query.filter_by(email=data['email']).first()
+    user_stats = UserStats.query.filter_by(email=data['email']).first()
     if user is not None:
         if user.password == data['password']:
             if user_info is None:
                 user_info = GetUser(username=user.username, email=data['email'])
                 db.session.add(user_info)
+                db.session.commit()
+            if user_stats is None:
+                user_stats = UserStats(email=data['email'])
+                db.session.add(user_stats)
                 db.session.commit()
             data = {'status': 'Success'}
             return jsonify(data), 200
@@ -110,5 +128,20 @@ def get_user():
     return jsonify(data), 400
 
 
+@app.route('/get_user_stats', methods=['POST'])
+def get_user_stats():
+    data = request.get_json(force=True)
+    user_stats = UserStats.query.filter_by(email=data['email']).first()
+    if user_stats is not None:
+        stats = {'programming_skills': user_stats.programming_skills,
+                 'design_skills': user_stats.design_skills,
+                 'social_skills': user_stats.social_skills}
+        data = {'status': 'Success', 'stats': stats}
+        return jsonify(data), 200
+    data = {'status': 'Failed',
+            'message': 'User not found'}
+    return jsonify(data), 400
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(host='127.0.0.2')
