@@ -91,7 +91,7 @@ def login_user():
 
 
 @app.route('/get_user', methods=['POST'])
-def login_user():
+def get_user():
     data = request.get_json(force=True)
     user_info = GetUser.query.filter_by(email=data['email']).first()
     if user_info is not None:
