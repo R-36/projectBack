@@ -72,14 +72,40 @@ def create_user():
 def login_user():
     data = request.get_json(force=True)
     user = User.query.filter_by(email=data['email']).first()
+    user_info = GetUser.query.filter_by(email=data['email']).first()
     if user is not None:
         if user.password == data['password']:
+            if user_info is None:
+                user_info = GetUser(username=data['nickname'], email=data['email'])
+                db.session.add(user_info)
+                db.session.commit()
             data = {'status': 'Success'}
             return jsonify(data), 200
         else:
             data = {'status': 'Failed',
                     'message': 'Password is incorrect'}
             return jsonify(data), 400
+    data = {'status': 'Failed',
+            'message': 'User not found'}
+    return jsonify(data), 400
+
+
+@app.route('/get_user', methods=['POST'])
+def login_user():
+    data = request.get_json(force=True)
+    user_info = GetUser.query.filter_by(email=data['email']).first()
+    if user_info is not None:
+        user = {'id': user_info.id,
+                'username': user_info.username,
+                'email': user_info.email,
+                'avatar': user_info.avatar,
+                'experience_act': user_info.experience_act,
+                'experience_next': user_info.experience_next,
+                'user_level': user_info.user_level,
+                'point_default': user_info.point_default,
+                'point_gold': user_info.point_gold}
+        data = {'status': 'Success', 'user': jsonify(user)}
+        return jsonify(data), 200
     data = {'status': 'Failed',
             'message': 'User not found'}
     return jsonify(data), 400
