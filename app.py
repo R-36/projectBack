@@ -49,6 +49,18 @@ class UserStats(db.Model):
         return '<GetUser %r>' % self.username
 
 
+class UserSkills(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    Python = db.Column(db.String(100), nullable=False, default="0 0 0")
+    HTML = db.Column(db.String(100), nullable=False, default="0 0 0")
+    CSS = db.Column(db.String(100), nullable=False, default="0 0 0")
+    JavaScript = db.Column(db.String(100), nullable=False, default="0 0 0")
+
+    def __repr__(self):
+        return '<UserSkills %r>' % self.email
+
+
 db.create_all()
 
 
@@ -72,9 +84,11 @@ def create_user():
         user = User(username=data['nickname'], email=data['email'], password=data['password'], status='user')
         user_info = GetUser(username=data['nickname'], email=data['email'])
         user_stats = UserStats(email=data['email'])
+        user_skills = UserSkills(email=data['email'])
         db.session.add(user)
         db.session.add(user_info)
         db.session.add(user_stats)
+        db.session.add(user_skills)
         db.session.commit()
         data = {'status': 'Success'}
         return jsonify(data), 200
@@ -86,6 +100,7 @@ def login_user():
     user = User.query.filter_by(email=data['email']).first()
     user_info = GetUser.query.filter_by(email=data['email']).first()
     user_stats = UserStats.query.filter_by(email=data['email']).first()
+    user_skills = UserSkills.query.filter_by(email=data['email']).first()
     if user is not None:
         if user.password == data['password']:
             if user_info is None:
@@ -95,6 +110,10 @@ def login_user():
             if user_stats is None:
                 user_stats = UserStats(email=data['email'])
                 db.session.add(user_stats)
+                db.session.commit()
+            if user_skills is None:
+                user_skills = UserSkills(email=data['email'])
+                db.session.add(user_skills)
                 db.session.commit()
             data = {'status': 'Success'}
             return jsonify(data), 200
@@ -137,6 +156,39 @@ def get_user_stats():
                  'design_skills': user_stats.design_skills,
                  'social_skills': user_stats.social_skills}
         data = {'status': 'Success', 'stats': stats}
+        return jsonify(data), 200
+    data = {'status': 'Failed',
+            'message': 'User not found'}
+    return jsonify(data), 400
+
+
+@app.route('/get_user_skills', methods=['POST'])
+def get_user_skills():
+    data = request.get_json(force=True)
+    user_skills = UserSkills.query.filter_by(email=data['email']).first()
+    if user_skills is not None:
+        python = user_skills.Python.strip().split()
+        html = user_skills.HTML.strip().split()
+        css = user_skills.CSS.strip().split()
+        javascript = user_skills.JavaScript.strip().split()
+        python_skills = {'label': 'Python',
+                         'level': python[0],
+                         'experience_current': python[1],
+                         'experience_required': python[2]}
+        html_skills = {'label': 'HTML',
+                       'level': html[0],
+                       'experience_current': html[1],
+                       'experience_required': html[2]}
+        css_skills = {'label': 'CSS',
+                      'level': css[0],
+                      'experience_current': css[1],
+                      'experience_required': css[2]}
+        javascript_skills = {'label': 'JavaScript',
+                             'level': javascript[0],
+                             'experience_current': javascript[1],
+                             'experience_required': javascript[2]}
+        data = {'status': 'Success', 'skills': {'Python': python_skills, 'HTML': html_skills, 'CSS': css_skills,
+                                                'JavaScript': javascript_skills}}
         return jsonify(data), 200
     data = {'status': 'Failed',
             'message': 'User not found'}
