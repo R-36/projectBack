@@ -5,7 +5,9 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://postgres:123@localhost/py_hack'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://xowmwjmfoeodaa:f3314bbaaf7d787f03149e86c4d23cdc531e12e2b717716c0' \
+                                        'b391d3ea6ef79fd@ec2-54-246-89-234.eu-west-1.compute.amazonaws.com:' \
+                                        '5432/d6u6hpm1v38eq4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 
@@ -66,4 +68,4 @@ def login_user():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run()
