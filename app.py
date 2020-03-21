@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask import request
 from flask_cors import CORS
+from flask_socketio import SocketIO, send, emit
 
 app = Flask(__name__)
 CORS(app)
@@ -10,6 +11,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://xowmwjmfoeodaa:f3314bbaaf7d7
                                         '5432/d6u6hpm1v38eq4'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 class User(db.Model):
@@ -195,5 +198,11 @@ def get_user_skills():
     return jsonify(data), 400
 
 
+@socketio.on('chat_message')
+def handle_message(data):
+    socketio.emit('chat_message', data)
+    print('received message: ' + data['sender'] + ": " + data['msg'])
+
+
 if __name__ == '__main__':
-    app.run(host='127.0.0.2')
+    socketio.run(app, host='0.0.0.0')
