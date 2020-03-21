@@ -23,6 +23,22 @@ class User(db.Model):
         return '<User %r>' % self.username
 
 
+class GetUser(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), db.ForeignKey('user.username'), unique=True, nullable=False)
+    email = db.Column(db.String(120), db.ForeignKey('user.email'), unique=True, nullable=False)
+    avatar = db.Column(db.String(120), nullable=False, default="")
+    experience_act = db.Column(db.Integer, nullable=False, default="0")
+    experience_next = db.Column(db.Integer, nullable=False, default="0")
+    user_level = db.Column(db.Integer, nullable=False, default="1")
+    point_default = db.Column(db.Integer, nullable=True, default="0")
+    point_gold = db.Column(db.Integer, nullable=True, default="0")
+    user = db.relationship('User', backref=db.backref('posts', lazy=True))
+
+    def __repr__(self):
+        return '<GetUser %r>' % self.username
+
+
 db.create_all()
 
 
@@ -44,7 +60,9 @@ def create_user():
         return jsonify(data), 400
     else:
         user = User(username=data['nickname'], email=data['email'], password=data['password'], status='user')
+        user_info = GetUser(username=data['nickname'], email=data['email'])
         db.session.add(user)
+        db.session.add(user_info)
         db.session.commit()
         data = {'status': 'Success'}
         return jsonify(data), 200
