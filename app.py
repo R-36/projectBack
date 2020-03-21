@@ -202,3 +202,7 @@ def get_user_skills():
 def handle_message(data):
     socketio.emit('chat_message', data)
     print('received message: ' + data['sender'] + ": " + data['msg'])
+
+
+if __name__ == "__main__":
+    socketio.run(app)
