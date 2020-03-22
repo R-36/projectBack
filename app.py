@@ -2,7 +2,8 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask import request
 from flask_cors import CORS
-from flask_socketio import SocketIO, send, emit
+from flask_socketio import SocketIO, send, emit, join_room, leave_room
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -13,6 +14,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 db = SQLAlchemy(app)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
+user_stack = []
+user_id = []
+actual_rooms = []
+actual_answer = []
+room_stack = []
 
 
 class User(db.Model):
@@ -64,7 +70,26 @@ class UserSkills(db.Model):
         return '<UserSkills %r>' % self.email
 
 
+class Questions(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String(120), unique=True, nullable=False)
+    answer1 = db.Column(db.String(100), nullable=False, default="")
+    answer2 = db.Column(db.String(100), nullable=False, default="")
+    answer3 = db.Column(db.String(100), nullable=False, default="")
+    answer4 = db.Column(db.String(100), nullable=False, default="")
+
+    def __repr__(self):
+        return '<Questions %r>' % self.email
+
+
 db.create_all()
+
+
+def on_join(data):
+    username = data['username']
+    room = data['room']
+    join_room(room)
+    send(username + ' has entered the room.', room=room)
 
 
 @app.route('/')
@@ -134,11 +159,17 @@ def get_user():
     data = request.get_json(force=True)
     user_info = GetUser.query.filter_by(email=data['email']).first()
     if user_info is not None:
+        if (int(user_info.experience_act) != 0) and int(user_info.experience_act) % 1000 == 0:
+            user_info.user_level = int(user_info.user_level) + 1
+            user_info.experience_act = 0
+            user_info.experience_next = 1000 + ((int(user_info.user_level) - 1) * int(user_info.experience_next))
+            db.session.add(user_info)
+            db.session.commit()
         user = {'id': user_info.id,
                 'username': user_info.username,
                 'email': user_info.email,
                 'avatar': user_info.avatar,
-                'experience_act': user_info.experience_act,
+                'experience_act': int(user_info.experience_act),
                 'experience_next': user_info.experience_next,
                 'user_level': user_info.user_level,
                 'point_default': user_info.point_default,
@@ -201,8 +232,111 @@ def get_user_skills():
 @socketio.on('chat_message')
 def handle_message(data):
     socketio.emit('chat_message', data)
+    user_info = GetUser.query.filter_by(username=data['sender']).first()
+    user_info.experience_act = int(user_info.experience_act) + 10
+    db.session.add(user_info)
+    db.session.commit()
+    user_info = GetUser.query.filter_by(username=data['sender']).first()
+    print(user_info.experience_act)
     print('received message: ' + data['sender'] + ": " + data['msg'])
 
 
+@socketio.on('trivia_join')
+def user_join(data):
+    user_stack.append(data['email'])
+    actual_rooms.append(data['email'])
+    user_id.append(request.sid)
+    print(user_stack)
+    print(user_id)
+    if len(user_stack) == 2:
+        player1 = GetUser.query.filter_by(email=user_stack[0]).first()
+        player2 = GetUser.query.filter_by(email=user_stack[1]).first()
+        question = Questions.query.filter_by(id=1).first()
+        actual_answer.append(question.answer1)
+        answers = [question.answer1, question.answer2, question.answer3, question.answer4]
+        data = {'game_status': 'start',
+                'players': {
+                    'player1': {
+                        'nickname': player1.username,
+                        'level': player1.user_level,
+                        'status': 'wait'
+                    },
+                    'player2': {
+                        'nickname': player2.username,
+                        'level': player2.user_level,
+                        'status': 'wait'
+                    }
+                },
+                'question': {
+                    'question': question.description,
+                    'answers': answers
+                }}
+        print(data)
+        socketio.emit('trivia_update', data)
+        actual_rooms.append(uuid.uuid4())
+        join_room(actual_rooms[-1], user_id[0])
+        join_room(actual_rooms[-1], user_id[1])
+        print(player1.username + ' has entered the room.', actual_rooms[-1])
+        print(player2.username + ' has entered the room.', actual_rooms[-1])
+        user_stack.clear()
+        print('start')
+    else:
+        data = {'game_status': 'lobby', 'user_count': len(user_stack)}
+        socketio.emit('trivia_update', data)
+        print('lobby')
+
+
+@socketio.on('trivia_answer')
+def user_answer(data):
+    player1 = GetUser.query.filter_by(email=actual_rooms[0]).first()
+    player2 = GetUser.query.filter_by(email=actual_rooms[1]).first()
+    question = Questions.query.filter_by(id=1).first()
+    actual_answer.append(question.answer1)
+    answers = [question.answer1, question.answer2, question.answer3, question.answer4]
+    data2 = {}
+    if data['email'] == player1.email:
+        actual_player = player1
+    else:
+        actual_player = player2
+    if actual_player == player1:
+        data2 = {'game_status': 'start',
+                 'players': {
+                     'player1': {
+                         'nickname': player1.username,
+                         'level': player1.user_level,
+                         'status': 'answer'
+                     },
+                     'player2': {
+                         'nickname': player2.username,
+                         'level': player2.user_level,
+                         'status': 'wait'
+                     }
+                 },
+                 'question': {
+                     'question': question.description,
+                     'answers': answers
+                 }}
+    elif actual_player == player2:
+        data2 = {'game_status': 'start',
+                 'players': {
+                     'player1': {
+                         'nickname': player1.username,
+                         'level': player1.user_level,
+                         'status': 'wait'
+                     },
+                     'player2': {
+                         'nickname': player2.username,
+                         'level': player2.user_level,
+                         'status': 'answer'
+                     }
+                 },
+                 'question': {
+                     'question': question.description,
+                     'answers': answers
+                 }}
+    socketio.emit('trivia_update', data2)
+    print("data2:", data2)
+
+
 if __name__ == "__main__":
-    socketio.run(app)
+    socketio.run(app, host="0.0.0.0")
