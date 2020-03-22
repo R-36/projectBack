@@ -38,7 +38,7 @@ class GetUser(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     avatar = db.Column(db.String(120), nullable=False, default="")
     experience_act = db.Column(db.Integer, nullable=False, default="0")
-    experience_next = db.Column(db.Integer, nullable=False, default="0")
+    experience_next = db.Column(db.Integer, nullable=False, default="1000")
     user_level = db.Column(db.Integer, nullable=False, default="1")
     point_default = db.Column(db.Integer, nullable=True, default="0")
     point_gold = db.Column(db.Integer, nullable=True, default="0")
